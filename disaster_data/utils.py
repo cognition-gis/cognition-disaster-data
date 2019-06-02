@@ -1,10 +1,13 @@
+import os
+from multiprocessing.pool import ThreadPool
+
 from osgeo import gdal
+
 
 def gdal_info_stac(infile):
     """
     Return incomplete STAC item from call to gdal.Info
     """
-
     info = gdal.Info(infile, format='json', allMetadata=True)
 
     # Calculating geometry and bbox
@@ -19,6 +22,7 @@ def gdal_info_stac(infile):
         filename = '/'.join(filename.split('/')[2:])
 
     partial_item = {
+        'id': os.path.splitext(os.path.split(filename)[-1])[0]
         'bbox': [min(xvals), min(yvals), max(xvals), max(yvals)],
         'geometry': {
             'type': 'Polygon',
@@ -36,3 +40,10 @@ def gdal_info_stac(infile):
     }
 
     return partial_item
+
+def gdal_info_stac_multi(filelist, num_threads=10):
+    m = ThreadPool(num_threads)
+    response = m.map(gdal_info_stac, filelist)
+    m.close()
+    m.join()
+    return response

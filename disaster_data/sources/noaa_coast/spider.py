@@ -133,4 +133,4 @@ class NoaaImageryCollections(scrapy.Spider):
     def parse_collection_items(self, file_list_url):
         r = requests.get(file_list_url)
         collection_items = r.content.decode('utf-8').splitlines()
-        return [x for x in collection_items if x.endswith('.tif')]
+        return ['/vsicurl/'+x for x in collection_items if x.endswith('.tif')]
