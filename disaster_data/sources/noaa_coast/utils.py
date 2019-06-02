@@ -27,18 +27,11 @@ def get_geoinfo(fpath):
         poly_list.append(buffered)
 
     dissolved = cascaded_union(poly_list)
-
-    if dissolved.geom_type == 'Polygon':
-        geoj = geojson.Polygon(geometry=dissolved)
-    elif dissolved.geom_type == 'MultiPolygon':
-        geoj = geojson.MultiPolygon(geometry=dissolved)
-
-
+    geoj = getattr(geojson, dissolved.geom_type)(geometry=dissolved)
     geo_info = {
         "geometry": json.loads(geojson.dumps(geoj)),
         "bbox": list(dissolved.bounds)
     }
-
     del geo_info['geometry']['coordinates']
 
     return geo_info
