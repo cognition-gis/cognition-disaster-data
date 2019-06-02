@@ -32,4 +32,4 @@ class ScrapyRunner(object):
         self.spider.crawl(outfile, **kwargs)
 
         with open(outfile, 'r') as geoj:
-            return json.load(geoj)[0]
+            return json.load(geoj)
