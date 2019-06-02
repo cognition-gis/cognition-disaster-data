@@ -4,14 +4,18 @@ from scrapy.crawler import CrawlerProcess
 
 from disaster_data.sources.noaa_coast.utils import get_geoinfo, get_fgdcinfo
 
+
 class NoaaImageryCollections(scrapy.Spider):
-    name = 'noaa-coast'
+
+    name = 'noaa-coast-imagery-collections'
     start_urls = [
         'https://coast.noaa.gov/htdata/raster2/index.html#imagery',
     ]
 
     @classmethod
-    def crawl(cls, outfile='output.json'):
+    def crawl(cls, outfile='output.json', ids=None):
+        cls.ids = ids
+
         process = CrawlerProcess({
             'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
             'FEED_FORMAT': 'json',
@@ -23,7 +27,7 @@ class NoaaImageryCollections(scrapy.Spider):
 
     def parse(self, response):
         """
-        Base scraper which generates a STAC Collection for each NOAA imagery project.
+        Generate a STAC Collection for each NOAA imagery project, optionally filtering by ID.
         """
         dem_table, imagery_table = response.xpath('//*[@class="sortable"]')
         imagery_head = imagery_table.xpath('.//thead//tr/th//text()').getall()
@@ -31,6 +35,10 @@ class NoaaImageryCollections(scrapy.Spider):
         collections = []
         for row in imagery_table.xpath('.//tbody//tr'):
             values = row.xpath('.//td')
+            id = values[-1].xpath('.//text()').get()
+            if self.ids:
+                if id not in self.ids:
+                    continue
 
             feature = {
                 "stac_version": "0.7.0",
