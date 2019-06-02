@@ -29,7 +29,7 @@ class ScrapyRunner(object):
     def execute(self, **kwargs):
         tempdir = tempfile.mkdtemp()
         outfile = os.path.join(tempdir, 'output.json')
-        self.spider.crawl(outfile, **kwargs)
+        self.spider.crawl(outfile=outfile, **kwargs)
 
         with open(outfile, 'r') as geoj:
             return json.load(geoj)

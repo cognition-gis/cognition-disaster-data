@@ -1,8 +1,11 @@
-import scrapy
+import os
 
+import scrapy
 from scrapy.crawler import CrawlerProcess
+import requests
 
 from disaster_data.sources.noaa_coast.utils import get_geoinfo, get_fgdcinfo
+
 
 
 class NoaaImageryCollections(scrapy.Spider):
@@ -13,8 +16,9 @@ class NoaaImageryCollections(scrapy.Spider):
     ]
 
     @classmethod
-    def crawl(cls, outfile='output.json', ids=None):
+    def crawl(cls, outfile='output.json', ids=None, items=False):
         cls.ids = ids
+        cls.items = items
 
         process = CrawlerProcess({
             'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
@@ -33,6 +37,8 @@ class NoaaImageryCollections(scrapy.Spider):
         imagery_head = imagery_table.xpath('.//thead//tr/th//text()').getall()
 
         collections = []
+        collection_items = []
+        ret = {}
         for row in imagery_table.xpath('.//tbody//tr'):
             values = row.xpath('.//td')
             id = values[-1].xpath('.//text()').get()
@@ -113,7 +119,18 @@ class NoaaImageryCollections(scrapy.Spider):
 
             collections.append(feature)
 
-        return {
-            "type": "FeatureCollection",
-            "features": collections
-        }
+            # Scrape items
+            if self.items:
+                items_url = os.path.join(feature['assets']['assets_http']['href'], 'urllist{}.txt'.format(feature['id']))
+                collection_items.append(self.parse_collection_items(items_url))
+
+        ret.update({'collections': collections})
+        if self.items:
+            ret.update({'items': collection_items})
+
+        return ret
+
+    def parse_collection_items(self, file_list_url):
+        r = requests.get(file_list_url)
+        collection_items = r.content.decode('utf-8').splitlines()
+        return [x for x in collection_items if x.endswith('.tif')]
