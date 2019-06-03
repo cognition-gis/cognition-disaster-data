@@ -30,8 +30,6 @@ class DGOpenDataCollections(scrapy.Spider):
         """
         event_list = response.css('.event-list__event')
 
-        collections = []
-        collection_items = []
         for event in event_list:
             disaster_link = response.urljoin(event.xpath('.//div/a/@href').get())
             event_name = disaster_link.split('/')[-1]
@@ -55,7 +53,6 @@ class DGOpenDataCollections(scrapy.Spider):
                 },
                 "extent": {}
             }
-            collections.append(collection)
 
             yield {
                 'type': 'collection',
