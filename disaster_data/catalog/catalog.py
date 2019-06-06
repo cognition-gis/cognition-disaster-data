@@ -2,6 +2,7 @@ import os
 import json
 
 from satstac import Catalog, Collection
+from disaster_data.utils import gdal_info_stac_multi
 
 # Root catalog definition
 cat_json = {
@@ -16,8 +17,35 @@ datasource_catalogs = {
         "id": "NOAACoast",
         "stac_version": "0.7.0",
         "description": "Disaster data scraped from NOAA Coast FTP server (https://coast.noaa.gov/htdata/raster2/index.html#imagery)"
+    },
+    "DigitalGlobe": {
+        "id": "DGOpenData",
+        "stac_version": "0.7.0",
+        "description": "DG imagery scraped from Digital Globe Open Data Program (https://www.digitalglobe.com/ecosystem/open-data)"
     }
 }
+
+
+def organize_stac_assets(assets):
+    # Find all collections and items
+    collections = [x['data'] for x in assets if x['type'] == 'collection']
+    items = [x for x in assets if x['type'] == 'item']
+
+    organized_collections = {}
+    for coll in collections:
+        organized_collections.update({coll['id']: coll})
+
+    organized_items = {}
+    for item in items:
+        organized_items.update({item['parent']: item['data']})
+
+    organized_stac = {
+        'collections': organized_collections,
+        'items': organized_items
+    }
+
+
+    return organized_stac
 
 class DisasterDataCatalog(object):
 
