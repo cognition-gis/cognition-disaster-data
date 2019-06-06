@@ -18,7 +18,7 @@ from . import band_mappings
 
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
 oam_upload_url = 'https://api.openaerialmap.org/uploads'
-oam_cookie = 'GA1.2.1556045971.1559778111'
+oam_cookie = os.environ['OAM_COOKIE']
 
 stac_mapping = {
     'sun_elevation_avg': 'eo:sun_azimuth',
@@ -202,4 +202,4 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, stac=True, oam=False):
             with open(temp_fpath, 'w') as outfile:
                 json.dump(oam_scenes, outfile, indent=2)
 
-            oam_upload(os.environ['OAM_COOKIE'], temp_fpath)
+            oam_upload(oam_cookie, temp_fpath)
