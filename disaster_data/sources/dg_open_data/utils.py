@@ -19,6 +19,7 @@ from . import band_mappings
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
 oam_upload_url = 'https://api.openaerialmap.org/uploads'
 oam_cookie = os.environ['OAM_COOKIE']
+dg_api_key = os.environ['DG_API_KEY']
 
 stac_mapping = {
     'sun_elevation_avg': 'eo:sun_azimuth',
@@ -43,7 +44,7 @@ def append_dg_metadata(stac_payload):
     url = "https://api.discover.digitalglobe.com/v1/services/ImageServer/query"
     headers = {
         "content-type": "application/x-www-form-urlencoded",
-        'x-api-key': "9xJw9yMzlS7lXWYRrgTA64cQXBcd5T2v3GldM3sY",
+        'x-api-key': dg_api_key,
     }
     stac_item = stac_payload['item']
     imgid = stac_item['assets']['data']['href'].split('/')[-2]
@@ -81,8 +82,9 @@ def append_dg_metadata(stac_payload):
 
         # Add browse url to assets
         stac_item['assets'].update({
-            'browseURL': {
-                'href': stac_item['properties'].pop('dg:browse_url')
+            'thumbnail': {
+                'href': stac_item['properties'].pop('dg:browse_url'),
+                'type': 'image/jpeg'
             }
         })
 
