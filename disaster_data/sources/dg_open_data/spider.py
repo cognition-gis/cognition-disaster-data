@@ -71,10 +71,7 @@ class DGOpenDataCollections(scrapy.Spider):
                 "extent": {}
             }
 
-            yield {
-                'type': 'collection',
-                'data': collection
-            }
+            yield collection
 
             # Scrape items
             if self.items:
@@ -90,9 +87,15 @@ class DGOpenDataCollections(scrapy.Spider):
 
         pre_event_items = items_from_imagery_table(pre_event)
         post_event_items = items_from_imagery_table(post_event)
+        all_items = pre_event_items + post_event_items
 
-        yield {
-            'type': 'item',
-            'parent': event_name,
-            'data': pre_event_items + post_event_items
-        }
+        [x.update({'collection': event_name}) for x in all_items]
+
+        # Add collection info to items
+        for item in all_items:
+            yield item
+
+        # yield {
+        #     'collection': event_name,
+        #     'data': pre_event_items + post_event_items
+        # }
