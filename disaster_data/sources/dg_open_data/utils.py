@@ -1,20 +1,20 @@
 import os
 import json
 import tempfile
-import shutil
 import uuid
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
 import subprocess
 
 import requests
-from satstac import Catalog, Collection, Item
+from satstac import Collection, Item
 
 from disaster_data.scraping import ScrapyRunner
-from disaster_data.catalog.catalog import organize_stac_assets
-from disaster_data.utils import gdal_info_stac_multi
 from disaster_data.sources.dg_open_data.spider import DGOpenDataCollections
 from . import band_mappings
+
+
+from osgeo import gdal
 
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
 oam_upload_url = 'https://api.openaerialmap.org/uploads'
@@ -40,13 +40,13 @@ sensor_mapping = {
     'WV04': 'WorldView-4'
 }
 
-def append_dg_metadata(stac_payload):
+def append_dg_metadata(stac_item):
     url = "https://api.discover.digitalglobe.com/v1/services/ImageServer/query"
     headers = {
         "content-type": "application/x-www-form-urlencoded",
         'x-api-key': dg_api_key,
     }
-    stac_item = stac_payload['item']
+    # stac_item = stac_payload['item']
     imgid = stac_item['assets']['data']['href'].split('/')[-2]
 
     xvals = [x[0] for x in stac_item['geometry']['coordinates'][0]]
@@ -102,17 +102,66 @@ def append_dg_metadata(stac_payload):
         stac_item['properties']['dg:collect_time_end'] = collect_time_end
         stac_item['properties']['datetime'] = collect_time_start
 
-        return {'parent': stac_payload['parent'], 'item': stac_item}
+        return stac_item
     else:
         # Return partial stac item (with geo-information) in event of bad query.
-        return {'parent': stac_payload['parent'], 'item': stac_item}
+        return stac_item
 
-def append_dg_metadata_multi(stac_payloads, num_threads=10):
-    m = ThreadPool(num_threads)
-    response = m.map(append_dg_metadata, stac_payloads)
-    m.close()
-    m.join()
-    return response
+def append_gdal_info(partial_item):
+    file_url = os.path.join("/vsicurl/" + partial_item['assets']['data']['href'])
+    info = gdal.Info(file_url, format='json', allMetadata=True)
+
+    # Calculating geometry and bbox
+    geometry = info['wgs84Extent']['coordinates']
+    xvals = [x[0] for x in geometry[0]]
+    yvals = [y[1] for y in geometry[0]]
+
+    # Strip vsi reference if present
+    filename = info['files'][0]
+    if filename.startswith('/vsi'):
+        filename = '/'.join(filename.split('/')[2:])
+
+    partial_item.update({
+        'id': '_'.join(os.path.splitext(filename)[0].split('/')[-2:]),
+        'bbox': [min(xvals), min(yvals), max(xvals), max(yvals)],
+        'geometry': {
+            'type': 'Polygon',
+            'coordinates': geometry
+        },
+        'properties': {
+            'eo:epsg': info['coordinateSystem']['wkt'].rsplit('"EPSG","', 1)[-1].split('"')[0],
+            'eo:gsd': (info['geoTransform'][1] + abs(info['geoTransform'][-1])) / 2,
+        }})
+
+def complete_stac_items(partial_stac_items):
+    for partial_item in partial_stac_items:
+        append_gdal_info(partial_item)
+        append_dg_metadata(partial_item)
+        yield partial_item
+
+def create_collections(collections):
+    dg_collection = Collection.open(os.path.join(root_url, 'DGOpenData', 'catalog.json'))
+
+    # Create collections if not exist
+    current_cat_names = [x.split('/')[-2] for x in dg_collection.links(rel='child')]
+
+    out_d = {}
+    for coll in collections:
+        if coll['id'] not in current_cat_names:
+            new_coll = Collection(coll)
+            dg_collection.add_catalog(new_coll)
+            out_d.update({coll['id']: new_coll})
+        else:
+
+            out_d.update({coll['id']:Collection.open(os.path.join(root_url, 'DGOpenData', coll['id'], 'catalog.json'))})
+
+    dg_collection.save()
+
+    return out_d
+
+def create_items(stac_items, collections):
+    for stac_item in stac_items:
+        collections[stac_item['collection']].add_item(Item(stac_item))
 
 def stac_to_oam(stac_items):
     # Sort STAC items by item ID.
@@ -154,46 +203,18 @@ def stac_to_oam(stac_items):
 
 def oam_upload(cookie, payload):
     resp = subprocess.call(f'curl -H "cookie: {cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
-    return resp.json()
+    return resp
 
 
 def build_dg_catalog(id_list, num_threads=10, limit=None, stac=True, oam=False):
-    if oam:
-        stac = False
 
     with ScrapyRunner(DGOpenDataCollections) as runner:
-        print("Scraping initial STAC information from url.")
-        response = runner.execute(ids=id_list, items=True)
-        organized = organize_stac_assets(response)
+        partial_items = runner.execute(ids=id_list, items=True)
+        collections = next(partial_items)
+        open_collections = create_collections(collections)
+        complete_items = complete_stac_items(partial_items)
+        create_items(complete_items, open_collections)
 
-
-        base_items = []
-        for col_id in organized['items']:
-            if limit:
-                organized['items'][col_id] = organized['items'][col_id][:limit]
-            for partial_item in organized['items'][col_id]:
-                base_items.append({'parent': col_id, 'item': partial_item})
-
-        print("Found {} unique assets within collections: {}".format(len(base_items), id_list))
-        print("Reading geometry for each item with gdal.Info.")
-        partial_items = gdal_info_stac_multi(base_items, num_threads)
-
-        print("Reading metadata for each item from DG Browse API.")
-        complete_items = append_dg_metadata_multi(partial_items)
-
-        print(json.dumps(complete_items[0], indent=1))
-
-        if stac:
-            print("Building STAC catalog.")
-            datasource_coll = Collection.open(os.path.join(root_url, 'DGOpenData', 'catalog.json'))
-
-            for coll in list(organized['collections']):
-                new_coll = Collection(organized['collections'][coll])
-                datasource_coll.add_catalog(new_coll)
-                for item in complete_items:
-                    if item['parent'] == coll:
-                        stac_item = Item(item['item'])
-                        new_coll.add_item(stac_item)
 
         if oam:
             # Map STAC items to OAM items
