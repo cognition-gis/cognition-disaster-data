@@ -65,6 +65,7 @@ def append_dg_metadata(stac_item):
         'f': 'json'
     }
 
+
     r = requests.post(url, headers=headers, data=payload)
     response = r.json()
 
@@ -192,9 +193,10 @@ def create_collections(collections):
     return out_d
 
 def create_stac_items(stac_items, collections):
-    item_path = '${date}/${dg:legacy_identifier_reference}/${id}'
+    item_path = '${date}/${dg:legacy_identifier_reference}'
+    item_name = '${id}'
     for stac_item in stac_items:
-        collections[stac_item['collection']].add_item(Item(stac_item), filename=item_path)
+        collections[stac_item['collection']].add_item(Item(stac_item), path=item_path, filename=item_name)
 
 def stac_to_oam(stac_items):
     # Sort STAC items by item ID.
@@ -251,6 +253,7 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, stac=True, oam=False):
         batch_size = int(math.ceil(item_count / num_threads))
         open_collections = create_collections(collections)
         complete_items = complete_stac_items(partial_items, batch_size, num_threads)
+
         create_stac_items(complete_items, open_collections)
 
         #
