@@ -92,7 +92,11 @@ def append_dg_metadata(stac_item):
         })
 
         # Add band mappings
+        band_count = stac_item['properties'].pop('bandcount')
         stac_item['properties'].update({'eo:bands': getattr(band_mappings, stac_item['properties']['eo:platform'])})
+        stac_item['assets']['data'].update({
+            'eo:bands': list(range(band_count))
+        })
 
         # Use panchromatic resolution over ms resolution if WV01
         if stac_item['properties']['eo:platform'] == 'WV01':
@@ -140,6 +144,7 @@ def append_gdal_info(partial_item):
         'properties': {
             'eo:epsg': info['coordinateSystem']['wkt'].rsplit('"EPSG","', 1)[-1].split('"')[0],
             'eo:gsd': (info['geoTransform'][1] + abs(info['geoTransform'][-1])) / 2,
+            'bandcount': len(info['bands'])
         }})
 
 def _complete_stac_item(partial_stac_items, conn):
@@ -185,7 +190,6 @@ def create_collections(collections):
             dg_collection.add_catalog(new_coll)
             out_d.update({coll['id']: new_coll})
         else:
-
             out_d.update({coll['id']:Collection.open(os.path.join(root_url, 'DGOpenData', coll['id'], 'catalog.json'))})
 
     dg_collection.save()
