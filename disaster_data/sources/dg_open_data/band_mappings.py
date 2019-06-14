@@ -1,42 +1,51 @@
 
 WV04 = [
         {
-            "name": "blue",
+            "name": "B01",
+            "common_name": "blue",
             "center_wavelength": 480
         },
         {
-            "name": "green",
+            "name": "B02",
+            "common_name": "green",
             "center_wavelength": 545
         },
         {
-            "name": "red",
+            "name": "B03",
+            "common_name": "red",
             "center_wavelength": 672.5
         },
         {
-            "name": "nir",
+            "name": "B04",
+            "common_name": "nir",
             "center_wavelength": 850
         },
         {
-            "name": "pan",
+            "name": "B05",
+            "common_name": "pan",
             "center_wavelength": 625
         }
     ]
 
 WV03 = [
         {
-            "name": "blue",
+            "name": "B01",
+            "common_name": "blue",
             "center_wavelength": 480
         },
         {
-            "name": "green",
+            "name": "B02",
+            "common_name": "green",
             "center_wavelength": 545
         },
         {
-            "name": "red",
+            "name": "B03",
+            "common_name": "red",
             "center_wavelength": 660
         },
         {
-            "name": "nir",
+            "name": "B04",
+            "common_name": "nir",
             "center_wavelength": 832.5
         }
     ]
@@ -44,19 +53,23 @@ WV03 = [
 
 WV02 = [
         {
-            "name": "blue",
+            "name": "B01",
+            "common_name": "blue",
             "center_wavelength": 478
         },
         {
-            "name": "green",
+            "name": "B02",
+            "common_name": "green",
             "center_wavelength": 546
         },
         {
-            "name": "red",
+            "name": "B03",
+            "common_name": "red",
             "center_wavelength": 659
         },
         {
-            "name": "nir",
+            "name": "B04",
+            "common_name": "nir",
             "center_wavelength": 831
         }
     ]
@@ -64,7 +77,8 @@ WV02 = [
 
 WV01 = [
         {
-            "name": "pan",
+            "name": "B01",
+            "common_name": "pan",
             "center_wavelength": 650
         }
     ]
@@ -72,19 +86,23 @@ WV01 = [
 
 GE01 = [
         {
-            "name": "blue",
+            "name": "B01",
+            "common_name": "blue",
             "center_wavelength": 480
         },
         {
-            "name": "green",
+            "name": "B02",
+            "common_name": "green",
             "center_wavelength": 550
         },
         {
-            "name": "red",
+            "name": "B03",
+            "common_name": "red",
             "center_wavelength": 672.5
         },
         {
-            "name": "nir",
+            "name": "B04",
+            "common_name": "nir",
             "center_wavelength": 850
         }
     ]
