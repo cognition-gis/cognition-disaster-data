@@ -59,6 +59,9 @@ class DGOpenDataCollections(scrapy.Spider):
             collection = {
                 "stac_version": "0.7.0",
                 "id": event_name,
+                "title": event_name,
+                "description": f"Satellite imagery for {event_name}",
+                "license": "CC BY-NC 4.0",
                 "properties": {
                     'legacy:date_available': date_available
                 },
@@ -68,6 +71,8 @@ class DGOpenDataCollections(scrapy.Spider):
                         "type": "html"
                     }
                 },
+                # Backfill this once items are populated.
+                # Or maybe aggregate extents inside AWS batch as STAC items are generated.
                 "extent": {}
             }
 
