@@ -40,6 +40,9 @@ class ScrapyRunner(object):
             # Make sure first item of generator are collections
             yield collections
 
+            # Make sure second item is the number of items to expect
+            yield len(data)
+
             for item in data:
                 yield item
 
