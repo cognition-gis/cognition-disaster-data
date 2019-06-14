@@ -106,7 +106,13 @@ def append_dg_metadata(stac_item):
 
         return stac_item
     else:
-        # Return partial stac item (with geo-information) in event of bad query.
+        # Parse necessary information from filename
+        # Return as partial item (without DG metadata appended)
+        splits = stac_item['assets']['data']['href'].split('/')
+        stac_item['properties'].update({
+            'dg:legacy_identifier_reference': splits[-2],
+            'datetime': splits[-3],
+        })
         return stac_item
 
 def append_gdal_info(partial_item):
@@ -124,7 +130,7 @@ def append_gdal_info(partial_item):
         filename = '/'.join(filename.split('/')[2:])
 
     partial_item.update({
-        'id': '_'.join(os.path.splitext(filename)[0].split('/')[-2:]),
+        'id': os.path.splitext(filename)[0].split('/')[-1],
         'bbox': [min(xvals), min(yvals), max(xvals), max(yvals)],
         'geometry': {
             'type': 'Polygon',
@@ -186,8 +192,9 @@ def create_collections(collections):
     return out_d
 
 def create_stac_items(stac_items, collections):
+    item_path = '${date}/${dg:legacy_identifier_reference}/${id}'
     for stac_item in stac_items:
-        collections[stac_item['collection']].add_item(Item(stac_item))
+        collections[stac_item['collection']].add_item(Item(stac_item), filename=item_path)
 
 def stac_to_oam(stac_items):
     # Sort STAC items by item ID.
