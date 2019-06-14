@@ -2,9 +2,11 @@ import os
 import json
 import tempfile
 import uuid
+import math
 from datetime import datetime
-from multiprocessing.pool import ThreadPool
+from multiprocessing import Process, Pipe
 import subprocess
+import itertools
 
 import requests
 from satstac import Collection, Item
@@ -133,11 +135,35 @@ def append_gdal_info(partial_item):
             'eo:gsd': (info['geoTransform'][1] + abs(info['geoTransform'][-1])) / 2,
         }})
 
-def complete_stac_items(partial_stac_items):
+def _complete_stac_item(partial_stac_items, conn):
+
     for partial_item in partial_stac_items:
         append_gdal_info(partial_item)
         append_dg_metadata(partial_item)
-        yield partial_item
+
+    conn.send(partial_stac_items)
+    conn.close()
+
+def complete_stac_items(partial_stac_items, batch_size, num_threads):
+    parent_connections = []
+    processes = []
+    for thread in range(num_threads):
+        parent_conn, child_conn = Pipe()
+        parent_connections.append(parent_conn)
+
+        process = Process(target=_complete_stac_item, args=(list(itertools.islice(partial_stac_items, batch_size)), child_conn))
+        processes.append(process)
+
+    for process in processes:
+        process.start()
+
+    for process in processes:
+        process.join()
+
+    for parent_connection in parent_connections:
+        resp = parent_connection.recv()
+        for item in resp:
+            yield item
 
 def create_collections(collections):
     dg_collection = Collection.open(os.path.join(root_url, 'DGOpenData', 'catalog.json'))
@@ -159,7 +185,7 @@ def create_collections(collections):
 
     return out_d
 
-def create_items(stac_items, collections):
+def create_stac_items(stac_items, collections):
     for stac_item in stac_items:
         collections[stac_item['collection']].add_item(Item(stac_item))
 
@@ -205,24 +231,29 @@ def oam_upload(cookie, payload):
     resp = subprocess.call(f'curl -H "cookie: {cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
     return resp
 
-
 def build_dg_catalog(id_list, num_threads=10, limit=None, stac=True, oam=False):
 
     with ScrapyRunner(DGOpenDataCollections) as runner:
         partial_items = runner.execute(ids=id_list, items=True)
         collections = next(partial_items)
+        item_count = next(partial_items)
+
+        if limit:
+            item_count = limit
+
+        batch_size = int(math.ceil(item_count / num_threads))
         open_collections = create_collections(collections)
-        complete_items = complete_stac_items(partial_items)
-        create_items(complete_items, open_collections)
+        complete_items = complete_stac_items(partial_items, batch_size, num_threads)
+        create_stac_items(complete_items, open_collections)
 
-
-        if oam:
-            # Map STAC items to OAM items
-            oam_scenes = stac_to_oam(complete_items)
-            # Create payload and upload to OAM
-            tempdir = tempfile.mkdtemp()
-            temp_fpath = os.path.join(tempdir, str(uuid.uuid4()))
-            with open(temp_fpath, 'w') as outfile:
-                json.dump(oam_scenes, outfile, indent=2)
-
-            oam_upload(oam_cookie, temp_fpath)
+        #
+        # if oam:
+        #     # Map STAC items to OAM items
+        #     oam_scenes = stac_to_oam(complete_items)
+        #     # Create payload and upload to OAM
+        #     tempdir = tempfile.mkdtemp()
+        #     temp_fpath = os.path.join(tempdir, str(uuid.uuid4()))
+        #     with open(temp_fpath, 'w') as outfile:
+        #         json.dump(oam_scenes, outfile, indent=2)
+        #
+        #     oam_upload(oam_cookie, temp_fpath)
