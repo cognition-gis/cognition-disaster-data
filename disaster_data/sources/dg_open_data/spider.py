@@ -29,17 +29,24 @@ class DGOpenDataCatalog(scrapy.Spider):
     start_urls = [
         'https://www.digitalglobe.com/ecosystem/open-data',
     ]
+    verbose = False
 
     @classmethod
     def crawl(cls, outfile='output.json', ids=None, items=False):
         cls.ids = ids
         cls.items = items
 
-        process = CrawlerProcess({
+        opts = {
             'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
             'FEED_FORMAT': 'json',
-            'FEED_URI': outfile
-        })
+            'FEED_URI': outfile,
+        }
+
+
+        if not cls.verbose:
+            opts.update({'LOG_ENABLED': False})
+
+        process = CrawlerProcess(opts)
         process.crawl(cls)
         # Blocked while crawling
         process.start()

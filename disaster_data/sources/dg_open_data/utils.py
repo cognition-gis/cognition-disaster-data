@@ -284,9 +284,12 @@ def oam_upload(cookie, payload):
     resp = subprocess.call(f'curl -H "cookie: {cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
     return resp
 
-def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False):
+def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False, verbose=False):
+
+    DGOpenDataCatalog.verbose = verbose
 
     with ScrapyRunner(DGOpenDataCatalog) as runner:
+
         partial_items = runner.execute(ids=id_list, items=True)
         collections = next(partial_items)
         item_count = next(partial_items)
