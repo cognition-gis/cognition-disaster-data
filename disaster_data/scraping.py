@@ -33,9 +33,8 @@ class ScrapyRunner(object):
 
         with open(outfile, 'r') as geoj:
             data = json.load(geoj)
-
             # Sort out the collections
-            collections = [data.pop(data.index(x)) for x in data if 'collection' not in x]
+            collections = [x for x in data if 'type' not in x]
 
             # Make sure first item of generator are collections
             yield collections
@@ -43,7 +42,7 @@ class ScrapyRunner(object):
             # Make sure second item is the number of items to expect
             yield len(data)
 
-            for item in data:
+            for item in data[len(collections):]:
                 yield item
 
 
