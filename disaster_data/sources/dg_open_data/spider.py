@@ -1,3 +1,5 @@
+import os
+
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
@@ -8,6 +10,8 @@ def items_from_imagery_table(table):
         assets = [x for x in row.xpath('.//td/a/@href').getall() if x.endswith('.tif')]
         for asset in assets:
             partial_item = {
+                'type': 'Feature',
+                'id': os.path.splitext(asset)[0].split('/')[-1],
                 'properties': {
                     'datetime': date
                 },
@@ -20,7 +24,7 @@ def items_from_imagery_table(table):
             out_list.append(partial_item)
     return out_list
 
-class DGOpenDataCollections(scrapy.Spider):
+class DGOpenDataCatalog(scrapy.Spider):
     name = 'dg-open-data'
     start_urls = [
         'https://www.digitalglobe.com/ecosystem/open-data',
@@ -100,7 +104,28 @@ class DGOpenDataCollections(scrapy.Spider):
         for item in all_items:
             yield item
 
-        # yield {
-        #     'collection': event_name,
-        #     'data': pre_event_items + post_event_items
-        # }
+class DGOpenDataSummary(DGOpenDataCatalog):
+
+    def parse(self, response):
+        event_list = response.css('.event-list__event')
+
+        for event in event_list:
+            disaster_link = response.urljoin(event.xpath('.//div/a/@href').get())
+            event_name = disaster_link.split('/')[-1]
+
+            if self.ids:
+                if event_name not in self.ids:
+                    continue
+
+            yield scrapy.Request(disaster_link, callback=self.parse_disaster)
+
+    def parse_disaster(self, response):
+        event_name = response.url.split('/')[-1]
+
+        pre_event = response.xpath('//*[@id="table--pre-event"]')
+        post_event = response.xpath('//*[@id="table--post-event"]')
+
+        pre_event_items = items_from_imagery_table(pre_event)
+        post_event_items = items_from_imagery_table(post_event)
+        all_items = pre_event_items + post_event_items
+        yield {event_name: len(all_items)}
