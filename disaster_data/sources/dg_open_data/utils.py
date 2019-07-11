@@ -90,7 +90,10 @@ def append_dg_metadata(stac_item):
 
         # Add band mappings
         band_count = stac_item['properties'].pop('bandcount')
-        stac_item['properties'].update({'eo:bands': getattr(band_mappings, stac_item['properties']['eo:platform'])})
+        try:
+            stac_item['properties'].update({'eo:bands': getattr(band_mappings, stac_item['properties']['eo:platform'])})
+        except:
+            print("Failed band mapping. The {} instrument is not registered.".format(stac_item['properties']['eo:platform']))
         stac_item['assets']['data'].update({
             'eo:bands': list(range(band_count))
         })
@@ -131,21 +134,17 @@ def append_dg_metadata(stac_item):
     return stac_item
 
 def append_gdal_info(partial_item):
+    file_url = os.path.join("/vsicurl/" + partial_item['assets']['data']['href'])
     try:
-        file_url = os.path.join("/vsicurl/" + partial_item['assets']['data']['href'])
-    except KeyError:
-        print("Bad item", partial_item)
-    info = gdal.Info(file_url, format='json', allMetadata=True)
+        info = gdal.Info(file_url, format='json', allMetadata=True)
+    except:
+        print("Failed to read spatial information for file: {}".format(file_url))
+        return None
 
     # Calculating geometry and bbox
     geometry = info['wgs84Extent']['coordinates']
     xvals = [x[0] for x in geometry[0]]
     yvals = [y[1] for y in geometry[0]]
-
-    # Strip vsi reference if present
-    filename = info['files'][0]
-    if filename.startswith('/vsi'):
-        filename = '/'.join(filename.split('/')[2:])
 
     partial_item.update({
         'bbox': [min(xvals), min(yvals), max(xvals), max(yvals)],
@@ -159,22 +158,24 @@ def append_gdal_info(partial_item):
         'eo:gsd': (info['geoTransform'][1] + abs(info['geoTransform'][-1])) / 2,
         'bandcount': len(info['bands'])
     })
+    return partial_item
 
 def _complete_stac_item(partial_stac_items, conn):
 
     for partial_item in partial_stac_items:
         # Append metadata to stac item with GDAL and DG Browse API
-        append_gdal_info(partial_item)
-        append_dg_metadata(partial_item)
+        _ = append_gdal_info(partial_item)
+        if _:
+            append_dg_metadata(partial_item)
 
-        # Add to stac catalog with stac-updater
-        lambda_client.invoke(
-            FunctionName=stac_updater_arn,
-            InvocationType="Event",
-            Payload=json.dumps(partial_item)
-        )
+            # Add to stac catalog with stac-updater
+            lambda_client.invoke(
+                FunctionName=stac_updater_arn,
+                InvocationType="Event",
+                Payload=json.dumps(partial_item)
+            )
 
-    conn.send(partial_stac_items)
+    conn.send([x for x in partial_stac_items if x])
     conn.close()
 
 def complete_stac_items(partial_stac_items, batch_size, num_threads):
@@ -196,12 +197,23 @@ def complete_stac_items(partial_stac_items, batch_size, num_threads):
         process.join()
 
     print("Getting results from processes")
-    extent_list = []
+    extents = {}
     for parent_connection in parent_connections:
         resp = parent_connection.recv()
         for item in resp:
-            extent_list.append({'bbox': item['bbox'], 'collection': item['collection']})
-    return extent_list
+            if 'bbox' in list(item):
+                if item['collection'] in list(extents):
+                    extents[item['collection']]['xvals'].append(item['bbox'][0])
+                    extents[item['collection']]['yvals'].append(item['bbox'][1])
+                    extents[item['collection']]['xvals'].append(item['bbox'][2])
+                    extents[item['collection']]['yvals'].append(item['bbox'][3])
+                else:
+                    extents.update({item['collection']: {
+                            'xvals': [item['bbox'][0], item['bbox'][2]],
+                            'yvals': [item['bbox'][1], item['bbox'][3]]
+                        }
+                    })
+    return extents
 
 def create_collections(collections):
     dg_collection = Collection.open(os.path.join(root_url, 'DGOpenData', 'catalog.json'))
@@ -297,12 +309,12 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False
 
         print("Finished building STAC items.")
         for id in id_list:
-            xmin_vals = [x['bbox'][0] for x in item_extents if x['collection'] == id]
-            xmax_vals = [x['bbox'][2] for x in item_extents if x['collection'] == id]
-            ymin_vals = [x['bbox'][1] for x in item_extents if x['collection'] == id]
-            ymax_vals = [x['bbox'][3] for x in item_extents if x['collection'] == id]
-
-            collection_extent = [min(xmin_vals), min(ymin_vals), max(xmax_vals), max(ymax_vals)]
+            collection_extent = [
+                min(item_extents[id]['xvals']),
+                min(item_extents[id]['yvals']),
+                max(item_extents[id]['xvals']),
+                max(item_extents[id]['yvals'])
+            ]
             print("Calculated extent of {} collection: {}".format(id, collection_extent))
 
             # Backfill extent with sat-stac
