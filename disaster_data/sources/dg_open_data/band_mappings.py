@@ -106,3 +106,26 @@ GE01 = [
             "center_wavelength": 850
         }
     ]
+
+QB01 = QB02 = [
+            {
+                "name": "B01",
+                "common_name": "blue",
+                "center_wavelength": 487.5
+            },
+            {
+                "name": "B02",
+                "common_name": "green",
+                "center_wavelength": 543
+            },
+            {
+                "name": "B03",
+                "common_name": "red",
+                "center_wavelength": 650
+            },
+            {
+                "name": "B04",
+                "common_name": "nir",
+                "center_wavelength": 816.5
+            }
+        ]
