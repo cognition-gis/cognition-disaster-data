@@ -225,10 +225,14 @@ def complete_stac_items(partial_stac_items, batch_size, num_threads):
                     extents[item['collection']]['yvals'].append(item['bbox'][1])
                     extents[item['collection']]['xvals'].append(item['bbox'][2])
                     extents[item['collection']]['yvals'].append(item['bbox'][3])
+                    extents[item['collection']]['datetime'].append(
+                        datetime.strptime(item['properties']['datetime'], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    )
                 else:
                     extents.update({item['collection']: {
                             'xvals': [item['bbox'][0], item['bbox'][2]],
-                            'yvals': [item['bbox'][1], item['bbox'][3]]
+                            'yvals': [item['bbox'][1], item['bbox'][3]],
+                            'datetime': [datetime.strptime(item['properties']['datetime'], "%Y-%m-%dT%H:%M:%S.%fZ")]
                         }
                     })
     return extents
@@ -253,12 +257,6 @@ def create_collections(collections):
     dg_collection.save()
 
     return out_d
-
-def create_stac_items(stac_items, collections):
-    item_path = '${date}/${dg:legacy_identifier_reference}'
-    item_name = '${id}'
-    for stac_item in stac_items:
-        collections[stac_item['collection']].add_item(Item(stac_item), path=item_path, filename=item_name)
 
 def stac_to_oam(stac_items):
     # Sort STAC items by item ID.
@@ -327,17 +325,29 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False
 
         # Build and ingest stac items
         item_extents = complete_stac_items(partial_items, batch_size, num_threads)
-
         print("Finished building STAC items.")
+
+        print("Backfilling spatial and temporal extent of STAC collection.")
         for id in id_list:
-            collection_extent = [
+            spatial_extent = [
                 min(item_extents[id]['xvals']),
                 min(item_extents[id]['yvals']),
                 max(item_extents[id]['xvals']),
                 max(item_extents[id]['yvals'])
             ]
-            print("Calculated extent of {} collection: {}".format(id, collection_extent))
+            print("Calculated spatial extent of {} collection: {}".format(id, spatial_extent))
+
+            temporal_extent = [
+                min(item_extents[id]['datetime']).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                max(item_extents[id]['datetime']).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ]
+            print("Calculated temporal extent of {} collection: {}".format(id, temporal_extent))
 
             # Backfill extent with sat-stac
-            open_collections[id].data.update({'extent': collection_extent})
-            open_collections[id].save()
+            coll = Collection.open(os.path.join(root_url, 'DGOpenData', id, 'catalog.json'))
+
+            coll.data['extent'].update({
+                'spatial': spatial_extent,
+                'temporal': temporal_extent
+            })
+            coll.save()
