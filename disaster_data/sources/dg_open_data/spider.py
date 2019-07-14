@@ -73,9 +73,13 @@ class DGOpenDataCatalog(scrapy.Spider):
                 "title": event_name,
                 "description": f"Satellite imagery for {event_name}",
                 "license": "CC BY-NC 4.0",
-                "properties": {
-                    'legacy:date_available': date_available
-                },
+                "providers": [
+                    {
+                        "name": "Digital Globe",
+                        "roles": ["producer", "processor", "host"],
+                        "url": "http://www.digitalglobe.com/ecosystem/open-data"
+                    }
+                ],
                 "assets": {
                     "assets_http": {
                         "href": disaster_link,
