@@ -30,7 +30,7 @@ oam_cookie = os.environ['OAM_COOKIE']
 dg_api_key = os.environ['DG_API_KEY']
 
 stac_mapping = {
-    'sun_elevation_avg': 'eo:sun_azimuth',
+    'sun_elevation_avg': 'eo:sun_elevation',
     'sun_azimuth_avg': 'eo:sun_azimuth',
     'target_azimuth_avg': 'eo:azimuth',
     'area_avg_off_nadir_angle': 'eo:off_nadir',
@@ -47,6 +47,20 @@ sensor_mapping = {
     'WV03': 'WorldView-3',
     'WV04': 'WorldView-4'
 }
+
+# List of relevant dg keys to include in item
+# These do not fall into any standard STAC extension (ex. eo) but are still pertinent to search / discovery
+relevant_dg_keys = [
+    'collect_time_start',
+    'collect_time_end',
+    'image_identifier',
+    'legacy_identifier_reference',
+    'multi_resolution_max',
+    'multi_resolution_min',
+    'browse_url',
+    'objectid',
+    'dg:relative_geolocation_accuracy',
+]
 
 def append_dg_metadata(stac_item):
     url = "https://api.discover.digitalglobe.com/v1/services/ImageServer/query"
@@ -85,7 +99,8 @@ def append_dg_metadata(stac_item):
             if k in stac_keys:
                 dg_props.update({stac_mapping[k]: v})
             else:
-                dg_props.update({f"dg:{k}": v})
+                if k in relevant_dg_keys:
+                    dg_props.update({f"dg:{k}": v})
         stac_item['properties'].update(dg_props)
 
         # Add band mappings
@@ -167,6 +182,9 @@ def _complete_stac_item(partial_stac_items, conn):
         _ = append_gdal_info(partial_item)
         if _:
             append_dg_metadata(partial_item)
+
+            # Order properties keys alphabetically for nicer viewing with sat-browser
+            partial_item['properties'] = dict(sorted(partial_item['properties'].items(), key=lambda x: x[0].lower()))
 
             # Add to stac catalog with stac-updater
             lambda_client.invoke(
