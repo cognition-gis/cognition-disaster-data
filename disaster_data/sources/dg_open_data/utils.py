@@ -215,33 +215,16 @@ def complete_stac_items(partial_stac_items, batch_size, num_threads):
         process.join()
 
     print("Getting results from processes")
-    extents = {}
     for parent_connection in parent_connections:
-        resp = parent_connection.recv()
-        for item in resp:
-            if 'bbox' in list(item):
-                if item['collection'] in list(extents):
-                    extents[item['collection']]['xvals'].append(item['bbox'][0])
-                    extents[item['collection']]['yvals'].append(item['bbox'][1])
-                    extents[item['collection']]['xvals'].append(item['bbox'][2])
-                    extents[item['collection']]['yvals'].append(item['bbox'][3])
-                    extents[item['collection']]['datetime'].append(
-                        datetime.strptime(item['properties']['datetime'], "%Y-%m-%dT%H:%M:%S.%fZ")
-                    )
-                else:
-                    extents.update({item['collection']: {
-                            'xvals': [item['bbox'][0], item['bbox'][2]],
-                            'yvals': [item['bbox'][1], item['bbox'][3]],
-                            'datetime': [datetime.strptime(item['properties']['datetime'], "%Y-%m-%dT%H:%M:%S.%fZ")]
-                        }
-                    })
-    return extents
+        # Calling recv() on each item will begin passing it through pipeline.
+        parent_connection.recv()
 
 def create_collections(collections):
     dg_collection = Collection.open(os.path.join(root_url, 'DGOpenData', 'catalog.json'))
 
     # Create collections if not exist
     current_cat_names = [x.split('/')[-2] for x in dg_collection.links(rel='child')]
+    current_cat_names.pop(current_cat_names.index('carr-wildfire'))
 
     out_d = {}
     for coll in collections:
@@ -324,30 +307,5 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False
             return
 
         # Build and ingest stac items
-        item_extents = complete_stac_items(partial_items, batch_size, num_threads)
+        complete_stac_items(partial_items, batch_size, num_threads)
         print("Finished building STAC items.")
-
-        print("Backfilling spatial and temporal extent of STAC collection.")
-        for id in id_list:
-            spatial_extent = [
-                min(item_extents[id]['xvals']),
-                min(item_extents[id]['yvals']),
-                max(item_extents[id]['xvals']),
-                max(item_extents[id]['yvals'])
-            ]
-            print("Calculated spatial extent of {} collection: {}".format(id, spatial_extent))
-
-            temporal_extent = [
-                min(item_extents[id]['datetime']).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                max(item_extents[id]['datetime']).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ]
-            print("Calculated temporal extent of {} collection: {}".format(id, temporal_extent))
-
-            # Backfill extent with sat-stac
-            coll = Collection.open(os.path.join(root_url, 'DGOpenData', id, 'catalog.json'))
-
-            coll.data['extent'].update({
-                'spatial': spatial_extent,
-                'temporal': temporal_extent
-            })
-            coll.save()
