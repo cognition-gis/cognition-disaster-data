@@ -224,7 +224,6 @@ def create_collections(collections):
 
     # Create collections if not exist
     current_cat_names = [x.split('/')[-2] for x in dg_collection.links(rel='child')]
-    current_cat_names.pop(current_cat_names.index('carr-wildfire'))
 
     out_d = {}
     for coll in collections:
@@ -301,7 +300,7 @@ def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False
         print("Batch size: {}".format(batch_size))
 
         # Build and ingest stac collections
-        open_collections = create_collections(collections)
+        create_collections(collections)
 
         if collections_only:
             return
