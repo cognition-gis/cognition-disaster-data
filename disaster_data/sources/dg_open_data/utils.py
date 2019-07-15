@@ -101,6 +101,11 @@ def append_dg_metadata(stac_item):
             else:
                 if k in relevant_dg_keys:
                     dg_props.update({f"dg:{k}": v})
+
+        # If the dg asset doesn't have a legacy identifier it can't be indexed
+        if not feature['attributes']['legacy_identifier_reference']:
+            return None
+
         stac_item['properties'].update(dg_props)
 
         # Add band mappings
@@ -115,7 +120,7 @@ def append_dg_metadata(stac_item):
 
         # Use panchromatic resolution over ms resolution if WV01
         if stac_item['properties']['eo:platform'] == 'WV01':
-            stac_item['properties'].update({'eo:gsd': stac_item['properties']['dg:pan_resolution_avg']})
+            stac_item['properties'].update({'eo:gsd': feature['attributes']['pan_resolution_avg']})
 
         # Handling datetime
         collect_time_start = datetime.fromtimestamp(int(str(stac_item['properties']['dg:collect_time_start'])[:-3])).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -133,7 +138,6 @@ def append_dg_metadata(stac_item):
             'datetime': splits[-3],
         })
 
-    # Generate a unique thumbnail URL (backfill later with aws batch)
     thumbnail_key = os.path.join(thumbnail_key_prefix,
                                  stac_item['collection'],
                                  stac_item['properties']['datetime'].split('T')[0],
@@ -181,17 +185,17 @@ def _complete_stac_item(partial_stac_items, conn):
         # Append metadata to stac item with GDAL and DG Browse API
         _ = append_gdal_info(partial_item)
         if _:
-            append_dg_metadata(partial_item)
+            _ = append_dg_metadata(partial_item)
+            if _:
+                # Order properties keys alphabetically for nicer viewing with sat-browser
+                partial_item['properties'] = dict(sorted(partial_item['properties'].items(), key=lambda x: x[0].lower()))
 
-            # Order properties keys alphabetically for nicer viewing with sat-browser
-            partial_item['properties'] = dict(sorted(partial_item['properties'].items(), key=lambda x: x[0].lower()))
-
-            # Add to stac catalog with stac-updater
-            lambda_client.invoke(
-                FunctionName=stac_updater_arn,
-                InvocationType="Event",
-                Payload=json.dumps(partial_item)
-            )
+                # Add to stac catalog with stac-updater
+                lambda_client.invoke(
+                    FunctionName=stac_updater_arn,
+                    InvocationType="Event",
+                    Payload=json.dumps(partial_item)
+                )
 
     conn.send([x for x in partial_stac_items if x])
     conn.close()
@@ -232,11 +236,11 @@ def create_collections(collections):
             new_coll = Collection(coll)
             dg_collection.add_catalog(new_coll)
             out_d.update({coll['id']: new_coll})
+            dg_collection.save()
         else:
             print("Opening existing collection: {}".format(coll['id']))
             out_d.update({coll['id']:Collection.open(os.path.join(root_url, 'DGOpenData', coll['id'], 'catalog.json'))})
 
-    dg_collection.save()
 
     return out_d
 
