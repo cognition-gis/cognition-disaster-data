@@ -86,7 +86,12 @@ def append_dg_metadata(stac_item):
 
 
     r = requests.post(url, headers=headers, data=payload)
-    response = r.json()
+
+    try:
+        response = r.json()
+    except:
+        print("Received malformed response from DG api.")
+        return None
 
     # Handle for bad queries
     if len(response['features']) > 0:
