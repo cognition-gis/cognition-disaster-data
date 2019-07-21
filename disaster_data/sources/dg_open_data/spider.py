@@ -24,6 +24,24 @@ def items_from_imagery_table(table):
             out_list.append(partial_item)
     return out_list
 
+def oam_assets_from_imagery_table(event_name, table):
+    out_list = []
+    for row in table.xpath('.//tbody/tr'):
+        parent_id = row.xpath('.//td/ul/p/text()').get()
+        assets = [x for x in row.xpath('.//td/a/@href').getall() if x.endswith('.tif')]
+
+        oam_item = {
+            "title": event_name + '_' + parent_id,
+            "provider": "Digital Globe Open Data Program",
+            "platform": "Satellite",
+            "license": "CC BY-NC 4.0",
+            "urls": assets
+        }
+
+        out_list.append(oam_item)
+    return out_list
+
+
 class DGOpenDataCatalog(scrapy.Spider):
     name = 'dg-open-data'
     start_urls = [
@@ -110,6 +128,7 @@ class DGOpenDataCatalog(scrapy.Spider):
         all_items = pre_event_items + post_event_items
 
         [x.update({'collection': event_name}) for x in all_items]
+        [x['properties'].update({'collection': event_name}) for x in all_items]
 
         # Add collection info to items
         for item in all_items:
@@ -140,3 +159,33 @@ class DGOpenDataSummary(DGOpenDataCatalog):
         post_event_items = items_from_imagery_table(post_event)
         all_items = pre_event_items + post_event_items
         yield {event_name: len(all_items)}
+
+class DGOpenDataOAM(DGOpenDataCatalog):
+
+    def parse(self, response):
+        event_list = response.css('.event-list__event')
+
+        for event in event_list:
+            disaster_link = response.urljoin(event.xpath('.//div/a/@href').get())
+            event_name = disaster_link.split('/')[-1]
+
+            if self.ids:
+                if event_name not in self.ids:
+                    continue
+
+            yield scrapy.Request(disaster_link, callback=self.parse_disaster)
+
+    def parse_disaster(self, response):
+        event_name = response.url.split('/')[-1]
+
+        pre_event = response.xpath('//*[@id="table--pre-event"]')
+        post_event = response.xpath('//*[@id="table--post-event"]')
+
+        pre_event_items = oam_assets_from_imagery_table(event_name, pre_event)
+        post_event_items = oam_assets_from_imagery_table(event_name, post_event)
+        all_items = pre_event_items + post_event_items
+
+        for item in all_items:
+            yield item
+
+

@@ -3,15 +3,14 @@ import json
 import math
 from datetime import datetime
 from multiprocessing import Process, Pipe
-import subprocess
 import itertools
 
 import boto3
 import requests
-from satstac import Collection, Item
+from satstac import Collection
 
 from disaster_data.scraping import ScrapyRunner
-from disaster_data.sources.dg_open_data.spider import DGOpenDataCatalog, DGOpenDataSummary
+from disaster_data.sources.dg_open_data.spider import DGOpenDataCatalog, DGOpenDataOAM
 from . import band_mappings
 
 from osgeo import gdal
@@ -155,6 +154,9 @@ def append_dg_metadata(stac_item):
         }
     })
 
+    # Updating ID to make sure items are unique across collections
+    stac_item['id'] = stac_item.properties['dg:legacy_identifier_reference'] + '_' + stac_item['id']
+
     return stac_item
 
 def append_gdal_info(partial_item):
@@ -245,59 +247,15 @@ def create_collections(collections):
         else:
             print("Opening existing collection: {}".format(coll['id']))
             out_d.update({coll['id']:Collection.open(os.path.join(root_url, 'DGOpenData', coll['id'], 'catalog.json'))})
-
-
     return out_d
 
-def stac_to_oam(stac_items):
-    # Sort STAC items by item ID.
-    added_ids = []
-    sorted_items = {}
-    for item in stac_items:
-        item_id = item['item']['assets']['data']['href'].split('/')[-2]
-        if item_id not in added_ids:
-            sorted_items.update({item_id: [item]})
-            added_ids.append(item_id)
-        else:
-            sorted_items[item_id].append(item)
-
-    oam_scenes = {
-        'scenes': []
-    }
-
-    for item_id in sorted_items:
-        # Aggregate min/max time from all items associated with the id
-        start_times = [x['item']['properties']['dg:collect_time_start'] for x in sorted_items[item_id] if 'dg:collect_time_start' in x['item']['properties'].keys()]
-        end_times = [x['item']['properties']['dg:collect_time_end'] for x in sorted_items[item_id] if 'dg:collect_time_end' in x['item']['properties'].keys()]
-        combined_times = start_times + end_times
-
-        # Grab urls from all items associated with the id
-        id_urls = [x['item']['assets']['data']['href'] for x in sorted_items[item_id]]
-        oam_item = {
-            "title": item_id,
-            "provider": "Digital Globe Open Data Program",
-            "platform": "satellite",
-            "lisence": "CC BY-NC 4.0",
-            "sensor": sensor_mapping[sorted_items[item_id][0]['item']['properties']['eo:platform']],
-            "acquisition_start": min(combined_times),
-            "acquisition_end": max(combined_times),
-            "urls": id_urls
-        }
-        oam_scenes['scenes'].append(oam_item)
-
-    return oam_scenes
-
-def oam_upload(cookie, payload):
-    resp = subprocess.call(f'curl -H "cookie: {cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
-    return resp
-
-def build_dg_catalog(id_list, num_threads=10, limit=None, collections_only=False, verbose=False):
+def build_stac_catalog(id_list, num_threads=10, limit=None, collections_only=False, verbose=False):
 
     DGOpenDataCatalog.verbose = verbose
 
     with ScrapyRunner(DGOpenDataCatalog) as runner:
 
-        partial_items = runner.execute(ids=id_list, items=True)
+        partial_items = runner.execute(ids=id_list)
         collections = next(partial_items)
         item_count = next(partial_items)
 
