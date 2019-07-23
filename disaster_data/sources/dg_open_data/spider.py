@@ -28,16 +28,18 @@ def oam_assets_from_imagery_table(event_name, table):
     out_list = []
     for row in table.xpath('.//tbody/tr'):
         parent_id = row.xpath('.//td/ul/p/text()').get()
-        assets = [x for x in row.xpath('.//td/a/@href').getall() if x.endswith('.tif')]
-
+        assets = [x for x in row.xpath('.//td/a/@href').getall() if x.endswith('.tif') and x.split('/')[-2] == parent_id]
         oam_item = {
             "title": event_name + '_' + parent_id,
+            "contact": {
+                "name": "Jeff Albrecht",
+                "email": "geospatialjeff@gmail.com"
+            },
             "provider": "Digital Globe Open Data Program",
             "platform": "Satellite",
             "license": "CC BY-NC 4.0",
             "urls": assets
         }
-
         out_list.append(oam_item)
     return out_list
 

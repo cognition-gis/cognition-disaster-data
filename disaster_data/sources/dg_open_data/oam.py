@@ -1,21 +1,14 @@
 import os
 import json
 import subprocess
-import math
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
-import itertools
 
 import boto3
 import requests
-from satstac import Collection
 
 from disaster_data.scraping import ScrapyRunner
-from disaster_data.sources.dg_open_data.spider import DGOpenDataCatalog, DGOpenDataOAM
-from . import band_mappings
-
-from osgeo import gdal
-
+from disaster_data.sources.dg_open_data.spider import DGOpenDataOAM
 
 s3 = boto3.client('s3')
 dg_api_key = os.environ['DG_API_KEY']
@@ -66,10 +59,16 @@ def _complete_oam_item(partial_oam_item):
         'sensor': response['attributes']['vehicle_name']
     })
 
+    final_item = {
+        "scenes": [
+            partial_oam_item
+        ]
+    }
+
     # Upload to S3
     target_key = os.path.join('oam', event_name, imgid + '.json')
     print(f"Uploading OAM upload definition to s3://{target_bucket}/{target_key}")
-    s3.put_object(Body=json.dumps(partial_oam_item), Bucket=target_bucket, Key=target_key)
+    s3.put_object(Body=json.dumps(final_item), Bucket=target_bucket, Key=target_key)
 
 def complete_oam_items(partial_oam_items):
     m = ThreadPool()
@@ -77,5 +76,5 @@ def complete_oam_items(partial_oam_items):
 
 
 def oam_upload(cookie, payload):
-    resp = subprocess.call(f'curl -H "cookie: {cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
+    resp = subprocess.call(f'curl -X POST --cookie "oam-session={cookie}" -H "Content-Type: application/json" -d @{payload} https://api.openaerialmap.org/uploads', shell=True)
     return resp
