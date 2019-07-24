@@ -125,6 +125,7 @@ def append_dg_metadata(stac_item):
         # Use panchromatic resolution over ms resolution if WV01
         if stac_item['properties']['eo:platform'] == 'WV01':
             stac_item['properties'].update({'eo:gsd': feature['attributes']['pan_resolution_avg']})
+            stac_item['assets']['data'].update({'title': 'PAN'})
 
         # Handling datetime
         collect_time_start = datetime.fromtimestamp(int(str(stac_item['properties']['dg:collect_time_start'])[:-3])).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -150,7 +151,8 @@ def append_dg_metadata(stac_item):
     stac_item['assets'].update({
         'thumbnail': {
             'href': 'https://{}.s3.amazonaws.com/{}'.format(thumbnail_bucket, thumbnail_key),
-            'type': 'image/jpeg'
+            'type': 'image/jpeg',
+            'title': 'Thumbnail',
         }
     })
 

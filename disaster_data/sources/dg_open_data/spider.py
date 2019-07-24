@@ -17,7 +17,9 @@ def items_from_imagery_table(table):
                 },
                 'assets': {
                     'data': {
-                        'href': asset
+                        'href': asset,
+                        'type': 'image/x.geotiff',
+                        'title': 'RGB'
                     }
                 }
             }
