@@ -94,7 +94,7 @@ class DGOpenDataCatalog(scrapy.Spider):
                 "id": event_name,
                 "title": event_name,
                 "description": f"Satellite imagery for {event_name}",
-                "license": "CC BY-NC 4.0",
+                "license": "CC-BY-NC-4.0",
                 "providers": [
                     {
                         "name": "Digital Globe",
