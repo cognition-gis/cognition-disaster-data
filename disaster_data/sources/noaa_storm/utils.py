@@ -40,10 +40,13 @@ def build_base_item(args):
     return partial_item
 
 def append_gdal_info(item):
-    info = gdal.Info(f"/vsitar//vsicurl/{item['assets']['data']['href']}", format='json')
+    info = gdal.Info(f"/vsitar//vsicurl/{item['assets']['data']['href']}", format='json', allMetadata=True, extraMDDomains='all')
+    print(info)
     geometry = info['wgs84Extent']['coordinates']
     centroid = info['cornerCoordinates']['center']
     epsg = int(info['coordinateSystem']['wkt'].rsplit('"EPSG","', 1)[-1].split('"')[0])
+
+    acq_date = info['metadata']['']['TIFFTAG_DATETIME']
 
     xvals = [x[0] for x in geometry[0]]
     yvals = [y[1] for y in geometry[0]]
@@ -71,6 +74,7 @@ def append_gdal_info(item):
         gdal.Unlink(f'/vsimem/{item["id"]}.vrt')
 
     item['properties'].update({
+        'datetime': f"{acq_date[0:4]}-{acq_date[5:7]}-{acq_date[8:10]}T{acq_date[11:13]}:{acq_date[14:16]}:{acq_date[17:19]}.00Z",
         'eo:gsd': spatial_res,
         'eo:epsg': epsg
     })
@@ -85,6 +89,7 @@ def build_stac_item(args):
     else:
         base_item = build_base_item(args)
         append_gdal_info(base_item)
+        print(base_item)
         return base_item
 
 
@@ -201,5 +206,6 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False):
 
 
         stac_items = build_stac_items(organized)
+        next(stac_items)
 
 build_stac_catalog(['hurricane-barry'], limit=1)
