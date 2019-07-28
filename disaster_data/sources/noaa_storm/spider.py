@@ -4,13 +4,12 @@ from urllib.parse import urljoin
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
-
 class NoaaStormCatalog(scrapy.Spider):
     name = 'noaa-storm'
     start_urls = [
         "https://storms.ngs.noaa.gov/"
     ]
-    verbose = False
+    verbose = True
 
     @classmethod
     def crawl(cls, outfile='output.json', ids=None, items=False):
@@ -36,9 +35,48 @@ class NoaaStormCatalog(scrapy.Spider):
         """
         Base scraper which scrapes each disaster link
         """
-        event_list = response.xpath("//div[contains(@class,'layout_col1')]/h2/a/@href")
-        for link in event_list:
-            yield scrapy.Request(link.get(), callback=self.parse_disaster)
+        event_list = response.xpath("//div[contains(@class,'layout_col1')]/h2/a")
+        for event in event_list:
+            event_name = event.xpath('text()').get().split('(')[0][:-1].replace(',', '').replace('.', '').replace(' ', '-').lower()
+            event_link = event.xpath('@href').get()
+
+            if self.ids:
+                if event_name not in self.ids:
+                    continue
+
+            collection = {
+                "id": event_name + '-st',
+                "title": event_name + '-st',
+                "description": "",
+                "stac_version": "0.7.0",
+                "license": "U.S. Government Work",
+                "providers": [
+                    {
+                        "name": "NOAA NGS",
+                        "roles": ["producer", "processor", "host"],
+                        "url": "https://www.ngs.noaa.gov/"
+                    }
+                ],
+                "assets": {
+                    "NOAA Coast viewer": {
+                        "href": event_link,
+                        "type": "text/html",
+                        "title": "Online data viewer"
+
+                    }
+                },
+                "links": [
+                    {
+                        "href": "https://www.usa.gov/government-works",
+                        "type": "text/html",
+                        "rel": "license"
+                    }
+                ]
+            }
+
+            yield collection
+
+            yield scrapy.Request(event_link, callback=self.parse_disaster)
 
     def parse_disaster(self, response):
 
@@ -54,7 +92,7 @@ class NoaaStormCatalog(scrapy.Spider):
             event_name = response.url.split('/')[-2]
 
         # If viewport is present, page is using modern format
-        # Each item yielded by Scrapy links to a TAR file containing many images and an index shapefile
+        # Each item yielded by Scrapy links to a TAR file containing many images and (sometimes) an index shapefile
         if len(format_check) > 0:
 
             download_links = [
@@ -68,7 +106,7 @@ class NoaaStormCatalog(scrapy.Spider):
                 yield {
                     'type': 'modern',
                     'event_name': event_name,
-                    'download_link': link,
+                    'archive': link,
                     'tile_index': tile_index_url[idx],
                     'metadata_url': metadata_url
                 }
@@ -115,7 +153,7 @@ class NoaaStormCatalog(scrapy.Spider):
             link = row.xpath('@href').get()
 
             if rel == 'Full Size Image':
-                payload.update({'download_link': urljoin(response.url, link)})
+                payload.update({'urls': [urljoin(response.url, link)]})
             elif rel == 'World File':
                 payload.update({'world_file': urljoin(response.url, link)})
             elif rel == 'Metadata File':
@@ -124,5 +162,3 @@ class NoaaStormCatalog(scrapy.Spider):
         # Only return the image if it has a world file
         if 'world_file' in payload:
             yield payload
-
-NoaaStormCatalog.crawl()
