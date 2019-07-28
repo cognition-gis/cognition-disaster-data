@@ -34,4 +34,16 @@ def parse_fgdc(url):
 
     return md
 
+def format_datetime(date, time=None):
+    date = f"{date[0:4]}-{date[4:6]}-{date[6:8]}"
+    if time:
+        return f"{date}T{time.split(' ')[0]}.00Z"
+    else:
+        return date
+
+def temporal_window(md):
+    return [
+        format_datetime(md.get('BeginningDate'), md.get('BeginningTime')),
+        format_datetime(md.get('EndingDate'), md.get('EndingTime'))
+    ]
 

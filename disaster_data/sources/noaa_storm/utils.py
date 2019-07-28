@@ -8,7 +8,7 @@ import utm
 
 from disaster_data.scraping import ScrapyRunner
 from disaster_data.sources.noaa_storm.spider import NoaaStormCatalog
-from disaster_data.sources.noaa_storm.fgdc import parse_fgdc
+from disaster_data.sources.noaa_storm.fgdc import parse_fgdc, temporal_window
 
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
 
@@ -41,7 +41,6 @@ def build_base_item(args):
 
 def append_gdal_info(item):
     info = gdal.Info(f"/vsitar//vsicurl/{item['assets']['data']['href']}", format='json', allMetadata=True, extraMDDomains='all')
-    print(info)
     geometry = info['wgs84Extent']['coordinates']
     centroid = info['cornerCoordinates']['center']
     epsg = int(info['coordinateSystem']['wkt'].rsplit('"EPSG","', 1)[-1].split('"')[0])
@@ -129,6 +128,7 @@ def get_urls(items):
         for future in futures:
             yield future.result()
 
+
 def create_collections(collections, items, id_list):
     noaa_collection = Collection.open(os.path.join(root_url, 'NOAAStorm', 'catalog.json'))
     current_cat_names = [x.split('/')[-2] for x in noaa_collection.links(rel='child')]
@@ -156,12 +156,10 @@ def create_collections(collections, items, id_list):
                         float(md['EastBoundingCoordinate']),
                         float(md['NorthBoundingCoordinate'])
                     ],
+                    "temporal": temporal_window(md)
                 },
                 "keywords": [x.lower() for x in md['ThemeKeyword'][:-1] if x]
             })
-
-            print(json.dumps(coll, indent=2))
-
 
             new_coll = Collection(coll)
             noaa_collection.add_catalog(new_coll)
@@ -185,8 +183,9 @@ def organize_by_collection(items):
     return organized
 
 
-def build_stac_catalog(id_list=None, limit=None, collections_only=False):
+def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose=False):
 
+    NoaaStormCatalog.verbose = verbose
 
     with ScrapyRunner(NoaaStormCatalog) as runner:
         scraped_items = list(runner.execute(ids=id_list))
@@ -204,8 +203,5 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False):
         items_with_urls = get_urls(scraped_items)
         organized = organize_by_collection(items_with_urls)
 
-
         stac_items = build_stac_items(organized)
         next(stac_items)
-
-build_stac_catalog(['hurricane-barry'], limit=1)
