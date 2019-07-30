@@ -84,11 +84,11 @@ class NoaaStormCatalog(scrapy.Spider):
         format_check = response.xpath("//head/meta[@name='viewport']")
 
         if 'geodesy.noaa.gov' in response.url:
-            event_name = response.url.split('/')[-2]
-            if '_' in event_name:
-                event_name = event_name.split('_')[-1]
+            event_id = response.url.split('/')[-2]
+            if '_' in event_id:
+                event_id = event_id.split('_')[-1]
         else:
-            event_name = response.url.split('/')[-2]
+            event_id = response.url.split('/')[-2]
 
         # If viewport is present, page is using modern format
         # Each item yielded by Scrapy links to a TAR file containing many images and (sometimes) an index shapefile
@@ -104,7 +104,7 @@ class NoaaStormCatalog(scrapy.Spider):
             for idx, link in enumerate(download_links):
                 yield {
                     'type': 'modern',
-                    'event_name': event_name,
+                    'event_name': response.meta['event_name'],
                     'archive': link,
                     'tile_index': tile_index_url[idx],
                     'metadata_url': metadata_url
@@ -114,7 +114,7 @@ class NoaaStormCatalog(scrapy.Spider):
         else:
             # Find the index
             index = [
-                x.get() for x in response.xpath("//td[contains(@class,'normaltext')]/a/@href") if event_name in x.get().lower() and
+                x.get() for x in response.xpath("//td[contains(@class,'normaltext')]/a/@href") if event_id in x.get().lower() and
                                                                                                   'https' not in x.get()
             ][0]
             yield scrapy.Request(os.path.join(os.path.dirname(response.url), index), callback=self.parse_map_index, meta=response.meta)
