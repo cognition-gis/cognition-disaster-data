@@ -147,6 +147,18 @@ class NoaaStormCatalog(scrapy.Spider):
         }
 
         col1, col2, col3 = response.xpath("//td")
+
+        # Parse datetime information from the page
+        date, time = col3.xpath('//font/text()[preceding-sibling::br and following-sibling::br]').getall()[1:3]
+        splits = date.replace('\n', '').replace(' ', '').replace('/', '-').split(':')[-1].split('-')
+        if int(splits[0]) < 10:
+            splits[0] = f"0{splits[0]}"
+        date = "-".join([splits[-1], splits[0], splits[1]])
+        time = ':'.join(time.replace('\n', '').replace(' ', '').split(':')[1:])
+        payload.update({
+            'datetime': f"{date}T{time}.00Z"
+        })
+
         rows = col1.xpath('//a')
         for row in rows:
             rel = row.xpath('text()').get()
