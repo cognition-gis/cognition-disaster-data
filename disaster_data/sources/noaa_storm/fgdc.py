@@ -2,7 +2,7 @@ from lxml import etree
 import requests
 from io import StringIO
 
-postprocess = lambda x: x.replace("\\r\n", " ").replace("\\n", " ") if x != "\\n" else ''
+postprocess = lambda x: x.replace("\\r\n", " ").replace("\\n", " ").replace("\\r ", "") if x != "\\n" else ''
 
 def parse_fgdc(url):
 
