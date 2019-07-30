@@ -168,7 +168,7 @@ def build_stac_items(organized_items):
             yield future.result()
 
 def remote_listdir(dir):
-    return [os.path.join(dir, x) for x in gdal.ReadDir(f"/vsitar//vsicurl/{dir}")]
+    return [os.path.join(dir, x) for x in gdal.ReadDir(f"/vsitar//vsicurl/{dir}") if x.endswith('.tif')]
 
 def get_url(item):
     if item['type'] == 'modern':
