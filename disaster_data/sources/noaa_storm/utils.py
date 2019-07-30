@@ -14,6 +14,7 @@ import utm
 from disaster_data.scraping import ScrapyRunner
 from disaster_data.sources.noaa_storm.spider import NoaaStormCatalog
 from disaster_data.sources.noaa_storm.fgdc import parse_fgdc, temporal_window
+from disaster_data.sources.noaa_storm import band_mappings
 
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
 
@@ -27,17 +28,23 @@ def build_base_item(args):
         'collection': args['event_name'],
         'properties': {
             'datetime': f"{acq_date[0:4]}-{acq_date[4:6]}-{acq_date[6:8]}",
+            'eo:platform': 'aerial',
+            'eo:instrument': 'TrimbleDSS',
+            'eo:bands': band_mappings.DSS,
         },
         'assets': {
             "data": {
                 "href": args['url'],
                 "title": "Raster data",
-                "type": "image/x.geotiff"
+                "type": "image/x.geotiff",
+                "eo:bands": [
+                    3,2,1
+                ]
             },
             "metadata": {
                 "href": args['metadata_url'],
                 "title": "FGDC metadata",
-                "type": "text/plain"
+                "type": "text/plain",
             }
         }
     }
@@ -130,16 +137,12 @@ def build_jpg_geometry(item):
     })
 
 def build_stac_item(args):
-
+    stac_item = build_base_item(args)
     if args['url'].endswith('.jpg'):
-        base_item = build_base_item(args)
-        build_jpg_geometry(base_item)
-        print(base_item)
+        build_jpg_geometry(stac_item)
     else:
-        base_item = build_base_item(args)
-        append_gdal_info(base_item)
-        print(base_item)
-        return base_item
+        append_gdal_info(stac_item)
+    return stac_item
 
 def build_stac_items(organized_items):
     with ThreadPoolExecutor(max_workers=100) as executor:
@@ -268,4 +271,5 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose
         print(organized)
 
         stac_items = build_stac_items(organized)
-        next(stac_items)
+        for item in stac_items:
+            print(item)
