@@ -45,7 +45,6 @@ def build_base_item(args):
     if 'world_file' in args:
         # Update id and datetime
         # Need to scrape datetime information
-        print(args)
         partial_item['id'] = os.path.splitext(os.path.basename(args['url']))[0].split('-')[-1]
         partial_item['properties']['datetime'] = args['datetime']
         # Update assets
@@ -186,6 +185,7 @@ def get_urls(items):
             yield future.result()
 
 def create_collections(collections, items, id_list):
+    id_list = [x+'@storm' for x in id_list]
     noaa_collection = Collection.open(os.path.join(root_url, 'NOAAStorm', 'catalog.json'))
     current_cat_names = [x.split('/')[-2] for x in noaa_collection.links(rel='child')]
 
@@ -194,6 +194,7 @@ def create_collections(collections, items, id_list):
     for id, coll in zip(id_list, collections):
         if coll['id'] not in current_cat_names:
             val = None
+            # Search through the scraped items until we find one in the appropriate collection
             while not val:
                 for item in items:
                     if item['event_name'] in id:
@@ -264,7 +265,6 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose
 
         items_with_urls = get_urls(scraped_items)
         organized = organize_by_collection(items_with_urls)
-
         print(organized)
 
         stac_items = build_stac_items(organized)

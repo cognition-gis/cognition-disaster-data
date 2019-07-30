@@ -45,8 +45,8 @@ class NoaaStormCatalog(scrapy.Spider):
                     continue
 
             collection = {
-                "id": event_name + '-st',
-                "title": event_name + '-st',
+                "id": event_name + '@storm',
+                "title": event_name + '@storm',
                 "description": "",
                 "stac_version": "0.7.0",
                 "license": "U.S. Government Work",
@@ -76,10 +76,9 @@ class NoaaStormCatalog(scrapy.Spider):
 
             yield collection
 
-            yield scrapy.Request(event_link, callback=self.parse_disaster)
+            yield scrapy.Request(event_link, callback=self.parse_disaster, meta={'event_name': event_name + '@storm'})
 
     def parse_disaster(self, response):
-
         # There are two different viewer formats used by NOAA Storm
         # Check the header to determine the format
         format_check = response.xpath("//head/meta[@name='viewport']")
@@ -118,32 +117,28 @@ class NoaaStormCatalog(scrapy.Spider):
                 x.get() for x in response.xpath("//td[contains(@class,'normaltext')]/a/@href") if event_name in x.get().lower() and
                                                                                                   'https' not in x.get()
             ][0]
-            yield scrapy.Request(os.path.join(os.path.dirname(response.url), index), callback=self.parse_map_index)
+            yield scrapy.Request(os.path.join(os.path.dirname(response.url), index), callback=self.parse_map_index, meta=response.meta)
 
     def parse_map_index(self, response):
         map = response.xpath("//map/div/area/@href")
         for url in map:
-            yield scrapy.Request(os.path.join(os.path.dirname(response.url), url.get()), callback=self.parse_image_index)
+            yield scrapy.Request(os.path.join(os.path.dirname(response.url), url.get()), callback=self.parse_image_index, meta=response.meta)
 
     def parse_image_index(self, response):
         map = response.xpath("//map/div/area/@href")
         for item in map:
             url = item.get()
             if url.endswith('.htm'):
-                yield scrapy.Request(os.path.join(os.path.dirname(response.url), url), callback=self.parse_image_page)
+                yield scrapy.Request(os.path.join(os.path.dirname(response.url), url), callback=self.parse_image_page, meta=response.meta)
             else:
                 # There is no image page, just a JPG.  No world file either.
                 # Could potentially rebuild a world file but ignoring for now.
                 pass
 
     def parse_image_page(self, response):
-        event_name = response.url.split('/')[-3]
-        if '_' in event_name:
-            event_name = event_name.split('_')[-1]
-
         payload = {
             'type': 'old',
-            'event_name': event_name
+            'event_name': response.meta['event_name']
         }
 
         col1, col2, col3 = response.xpath("//td")
