@@ -263,12 +263,12 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose
         if collections_only:
             return
 
-        if limit:
-            scraped_items = scraped_items[:limit]
-
         items_with_urls = get_urls(scraped_items)
         organized = organize_by_collection(items_with_urls)
-        print(organized)
+
+        if limit:
+            for coll in organized:
+                organized[coll]['urls'] = organized[coll]['urls'][:limit]
 
         stac_items = build_stac_items(organized)
         for item in stac_items:
