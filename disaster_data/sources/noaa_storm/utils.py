@@ -164,8 +164,6 @@ def build_stac_item(args):
         InvocationType="Event",
         Payload=json.dumps(stac_item)
     )
-
-
     return stac_item
 
 def build_stac_items(organized_items):
@@ -245,6 +243,13 @@ def create_collections(collections, items, id_list):
                 "keywords": [x.lower() for x in md['ThemeKeyword'][:-1] if x]
             })
 
+            # Sometimes FGDC will only list year/month for dates
+            # If this happens, use the date from a stac item as the starting extent.
+            # Extent will be updated automatically as items are ingested with sat-stac
+            if coll['extent']['temporal'][0].endswith('-') or coll['extent']['temporal'][1].endswith('-'):
+                coll['extent']['temporal'][0] += val['archive'].split('/')[-1].split('_')[0][-3:-1]
+                coll['extent']['temporal'][1] += val['archive'].split('/')[-1].split('_')[0][-3:-1]
+
             new_coll = Collection(coll)
             noaa_collection.add_catalog(new_coll)
             noaa_collection.save()
@@ -297,5 +302,3 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose
         stac_items = build_stac_items(organized)
         for item in stac_items:
             print(item)
-
-build_stac_catalog(id_list='hurricane-barry', limit=5)
