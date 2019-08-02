@@ -3,6 +3,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
+import boto3
 from osgeo import gdal
 from pyproj import Proj, transform
 from shapely.ops import transform as reproject_geometry
@@ -17,17 +18,24 @@ from disaster_data.sources.noaa_storm.fgdc import parse_fgdc, temporal_window
 from disaster_data.sources.noaa_storm import band_mappings
 
 root_url = 'https://cognition-disaster-data.s3.amazonaws.com'
+stac_updater_arn = 'arn:aws:lambda:us-east-1:725820063953:function:stac-updater-storm-dev-kickoff'
+thumbnail_bucket = 'cognition-disaster-data'
+thumbnail_key_prefix = 'thumbnails'
+
+lambda_client = boto3.client('lambda')
+
 
 def build_base_item(args):
     id = os.path.splitext(os.path.split(args['url'])[-1])[0]
     acq_date = args['url'].split('/')[-2].split('_')[0]
+    datetime = f"{acq_date[0:4]}-{acq_date[4:6]}-{acq_date[6:8]}"
 
     partial_item = {
         'type': 'Feature',
         'id': id,
         'collection': args['event_name'],
         'properties': {
-            'datetime': f"{acq_date[0:4]}-{acq_date[4:6]}-{acq_date[6:8]}",
+            'datetime': datetime,
             'eo:platform': 'aerial',
             'eo:instrument': 'TrimbleDSS',
             'eo:bands': band_mappings.DSS,
@@ -45,6 +53,13 @@ def build_base_item(args):
                 "href": args['metadata_url'],
                 "title": "FGDC metadata",
                 "type": "text/plain",
+            },
+            "thumbnail": {
+                "href": "https://{}.s3.amazonaws.com/{}".format(
+                    thumbnail_bucket, os.path.join(thumbnail_key_prefix, args['event_name'], datetime, id + '.jpg')
+                ),
+                "type": "image/jpeg",
+                "title": "Thumbnail",
             }
         }
     }
@@ -142,6 +157,15 @@ def build_stac_item(args):
         build_jpg_geometry(stac_item)
     else:
         append_gdal_info(stac_item)
+
+    # Add to STAC-catalog with stac-updater
+    lambda_client.invoke(
+        FunctionName=stac_updater_arn,
+        InvocationType="Event",
+        Payload=json.dumps(stac_item)
+    )
+
+
     return stac_item
 
 def build_stac_items(organized_items):
@@ -273,3 +297,5 @@ def build_stac_catalog(id_list=None, limit=None, collections_only=False, verbose
         stac_items = build_stac_items(organized)
         for item in stac_items:
             print(item)
+
+build_stac_catalog(id_list='hurricane-barry', limit=5)
