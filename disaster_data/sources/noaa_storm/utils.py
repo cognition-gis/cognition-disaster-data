@@ -147,7 +147,7 @@ def build_jpg_geometry(item):
         'geometry': json.loads(json.dumps(mapping(geom_proj)))
     })
     item['properties'].update({
-        'eo:gsd': xres,
+        'eo:gsd': round(xres, 4),
         'eo:epsg': int(epsg)
     })
 
