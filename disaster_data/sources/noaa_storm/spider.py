@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
+
 class NoaaStormCatalog(scrapy.Spider):
     name = 'noaa-storm'
     start_urls = [
@@ -83,6 +84,7 @@ class NoaaStormCatalog(scrapy.Spider):
         # Check the header to determine the format
         format_check = response.xpath("//head/meta[@name='viewport']")
 
+
         if 'geodesy.noaa.gov' in response.url:
             event_id = response.url.split('/')[-2]
             if '_' in event_id:
@@ -93,10 +95,9 @@ class NoaaStormCatalog(scrapy.Spider):
         # If viewport is present, page is using modern format
         # Each item yielded by Scrapy links to a TAR file containing many images and (sometimes) an index shapefile
         if len(format_check) > 0:
-
+            formats = ('_RGB.tar', '_RGB.zip', 'Oblique.tar', 'Oblique.zip', 'GCS_NAD83.tar', 'GCS_NAD83.zip')
             download_links = [
-                x.get() for x in response.xpath("//ul[contains(@class,'dropdown-menu')]/li/a/@href") if x.get().endswith('_RGB.tar')
-            ]
+                x.get() for x in response.xpath("//ul[contains(@class,'dropdown-menu')]/li/a/@href") if x.get().endswith(formats)]
 
             tile_index_url = [f'/vsitar//vsicurl/{x}/{x.split("/")[-1].split("_")[0]}_tile_index.shp' for x in download_links]
             metadata_url = response.xpath("//div[@id='metadata']/ul/li/a/@href").get()
