@@ -100,7 +100,7 @@ def create_collections(collections, items, id_list):
     return out_collections
 
 def build_stac_catalog(id_list=None, verbose=False):
-    prefix = '/home/slingshot/Downloads/'
+    prefix = '/data/'
     tempdir = tempfile.mkdtemp(prefix=prefix)
     tempthumbs = tempfile.mkdtemp(prefix=prefix)
 
@@ -157,8 +157,7 @@ def build_stac_catalog(id_list=None, verbose=False):
                 print("Found a JPG with disconnected world file")
 
         # Download archives
-        # download_archives(archive_assets, prefix)
-        archive_assets[0].archive = '/home/slingshot/Downloads/20150411a_RGB_NADIR_JpegTiles_GCS_NAD83.tar'
+        download_archives(archive_assets, prefix)
 
         print("Creating items and thumbnails.")
         # Add items
