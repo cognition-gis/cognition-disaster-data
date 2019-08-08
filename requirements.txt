@@ -1,3 +1,4 @@
+awscli==1.16.140
 Click==7.0
 gis-metadata-parser==1.1.4
 requests==2.20.1
