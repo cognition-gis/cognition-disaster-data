@@ -74,7 +74,7 @@ class Archive(object):
 
         infile = os.path.join(self.archive, splits[-1])
         outfile = os.path.join(date_dir, splits[-1])
-        gdal.Translate(outfile, f"{self.vsipath}/{infile}", widthPct=15, heightPct=15, format='JPEG')
+        gdal.Translate(outfile, f"{self.vsipath}{infile}", widthPct=15, heightPct=15, format='JPEG')
 
     def build_items(self):
         raise NotImplementedError
