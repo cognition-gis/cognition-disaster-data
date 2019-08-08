@@ -101,8 +101,8 @@ def create_collections(collections, items, id_list):
 
 def build_stac_catalog(id_list=None, verbose=False):
 
-    tempdir = tempfile.mkdtemp(prefix='/home/slingshot/Downloads/')
-    tempthumbs = tempfile.mkdtemp(prefix='/home/slingshot/Downloads/')
+    tempdir = tempfile.mkdtemp(prefix='/data/')
+    tempthumbs = tempfile.mkdtemp(prefix='/data/')
 
     NoaaStormCatalog.verbose = verbose
 
@@ -151,7 +151,7 @@ def build_stac_catalog(id_list=None, verbose=False):
                 print("Found a JPG with disconnected world file")
 
         # Download archives
-        download_archives(archive_assets, '/home/slingshot/Downloads')
+        download_archives(archive_assets, '/data/')
 
         print("Creating items and thumbnails.")
         # Add items
