@@ -18,12 +18,11 @@ class Archive(object):
         self.thumbdir = thumbdir
 
     def download(self, out_dir):
+        self.archive = os.path.join(out_dir, os.path.basename(self.item['archive']))
         # subprocess.call(f"curl -OJ {self.item['archive']}")
         print("Downloading remote archive: {}".format(self.item['archive']))
-        subprocess.call(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
-        print("Finished downloading remote archive: {}".format(self.item['archive']))
-        self.archive = os.path.join(out_dir, os.path.basename(self.item['archive']))
-        return 1
+        process = subprocess.Popen(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
+        return process
 
     def listdir(self, exts=('.jpg', '.tif', '.vrt'), split_by_ext=False):
         if self.archive.endswith('.tar'):
