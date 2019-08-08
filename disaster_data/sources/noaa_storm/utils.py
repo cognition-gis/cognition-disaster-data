@@ -104,6 +104,9 @@ def build_stac_catalog(id_list=None, verbose=False):
     tempdir = tempfile.mkdtemp(prefix='/data/')
     tempthumbs = tempfile.mkdtemp(prefix='/data/')
 
+    print("Catalog tempdir: {}".format(tempdir))
+    print("Thumbnaisl tempdir: {}".format(tempthumbs))
+
     NoaaStormCatalog.verbose = verbose
 
     print("Running web scraper.")
@@ -117,7 +120,10 @@ def build_stac_catalog(id_list=None, verbose=False):
         # Build stac catalog locally
         # Start with NOAA Storm catalog
         root_catalog = Catalog.open(os.path.join(ROOT_URL, 'NOAAStorm', 'catalog.json'))
+        print(root_catalog)
+
         root_catalog.save_as(filename=os.path.join(tempdir, 'catalog.json'))
+        print(root_catalog.filename)
 
         print("Creating collections.")
         # Create collections
