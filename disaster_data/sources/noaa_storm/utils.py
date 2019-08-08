@@ -100,12 +100,12 @@ def create_collections(collections, items, id_list):
     return out_collections
 
 def build_stac_catalog(id_list=None, verbose=False):
-
-    tempdir = tempfile.mkdtemp(prefix='/data/')
-    tempthumbs = tempfile.mkdtemp(prefix='/data/')
+    prefix = '/home/slingshot/Downloads/'
+    tempdir = tempfile.mkdtemp(prefix=prefix)
+    tempthumbs = tempfile.mkdtemp(prefix=prefix)
 
     print("Catalog tempdir: {}".format(tempdir))
-    print("Thumbnaisl tempdir: {}".format(tempthumbs))
+    print("Thumbnails tempdir: {}".format(tempthumbs))
 
     NoaaStormCatalog.verbose = verbose
 
@@ -118,19 +118,19 @@ def build_stac_catalog(id_list=None, verbose=False):
         collections = create_collections(collections, scraped_items, id_list)
 
         # Build stac catalog locally
-        # Start with NOAA Storm catalog
-        root_catalog = Catalog.open(os.path.join(ROOT_URL, 'NOAAStorm', 'catalog.json'))
-        print(root_catalog)
-
+        root_catalog = Catalog.open(os.path.join(ROOT_URL, 'catalog.json'))
         root_catalog.save_as(filename=os.path.join(tempdir, 'catalog.json'))
-        print(root_catalog.filename)
+
+        # NOAA Storm catalog
+        os.mkdir(os.path.join(tempdir, 'NOAAStorm'))
+        noaa_storm_cat = Catalog.open(os.path.join(ROOT_URL, 'NOAAStorm', 'catalog.json'))
+        noaa_storm_cat.save_as(filename=os.path.join(tempdir, 'NOAAStorm', 'catalog.json'))
 
         print("Creating collections.")
-        # Create collections
         d = {}
         for collection in collections:
             coll = Collection(collection)
-            root_catalog.add_catalog(coll)
+            noaa_storm_cat.add_catalog(coll)
             d.update({
                 collection['id']: coll
             })
@@ -157,7 +157,8 @@ def build_stac_catalog(id_list=None, verbose=False):
                 print("Found a JPG with disconnected world file")
 
         # Download archives
-        download_archives(archive_assets, '/data/')
+        # download_archives(archive_assets, prefix)
+        archive_assets[0].archive = '/home/slingshot/Downloads/20150411a_RGB_NADIR_JpegTiles_GCS_NAD83.tar'
 
         print("Creating items and thumbnails.")
         # Add items
@@ -189,10 +190,10 @@ def build_stac_catalog(id_list=None, verbose=False):
             except:
                 d[item['collection']].extent['temporal'] = [item['properties']['datetime'], item['properties']['datetime']]
 
-        # Upload catalog to S3
-        print("Uploading catalog to S3.")
-        subprocess.call(f"aws s3 sync {tempdir} s3://cognition-disaster-data/NOAAStorm/", shell=True)
+    # Upload catalog to S3
+    print("Uploading catalog to S3.")
+    subprocess.call(f"aws s3 sync {tempdir} s3://cognition-disaster-data/", shell=True)
 
-        print("Uploading thumbnails to S3.")
-        # Upload thumbnails to S3
-        subprocess.call(f"aws s3 sync {thumbdir} s3://cognition-disaster-data/thumbnails/", shell=True)
+    print("Uploading thumbnails to S3.")
+    # Upload thumbnails to S3
+    subprocess.call(f"aws s3 sync {thumbdir} s3://cognition-disaster-data/thumbnails/", shell=True)
