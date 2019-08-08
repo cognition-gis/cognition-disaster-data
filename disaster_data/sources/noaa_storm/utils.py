@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 import tempfile
 import subprocess
+import shutil
 
 from satstac import Collection, Catalog, Item
 
@@ -15,6 +16,16 @@ from disaster_data.sources.noaa_storm.assets import ObliqueArchive, RGBArchive, 
 ROOT_URL = 'https://cognition-disaster-data.s3.amazonaws.com'
 NOAA_STORM_ROOT = 'https://cognition-disaster-data.s3.amazonaws.com/NOAAStorm'
 MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 5))
+
+def cleanup(folder):
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        except Exception as e:
+            print(e)
 
 def load_datetime(date_str):
     try:
@@ -196,3 +207,5 @@ def build_stac_catalog(id_list=None, verbose=False):
     print("Uploading thumbnails to S3.")
     # Upload thumbnails to S3
     subprocess.call(f"aws s3 sync {thumbdir} s3://cognition-disaster-data/thumbnails/", shell=True)
+
+    cleanup(prefix)
