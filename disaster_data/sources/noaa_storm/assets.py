@@ -21,7 +21,8 @@ class Archive(object):
         self.archive = os.path.join(out_dir, os.path.basename(self.item['archive']))
         # subprocess.call(f"curl -OJ {self.item['archive']}")
         print("Downloading remote archive: {}".format(self.item['archive']))
-        process = subprocess.Popen(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
+        process = subprocess.call(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
+        print("Finished downloading remote archive: {}".format(self.item['archive']))
         return process
 
     def listdir(self, exts=('.jpg', '.tif', '.vrt'), split_by_ext=False):

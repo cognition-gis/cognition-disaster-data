@@ -36,11 +36,7 @@ def load_datetime(date_str):
 def download_archives(archives, out_dir):
     processes = []
     for archive in archives:
-        p = archive.download(out_dir=out_dir)
-        processes.append(p)
-
-    for process in processes:
-        process.wait()
+        archive.download(out_dir=out_dir)
 
 def _build_stac_items(asset):
     return asset.build_items()
