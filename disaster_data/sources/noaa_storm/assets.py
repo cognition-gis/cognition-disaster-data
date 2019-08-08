@@ -56,13 +56,14 @@ class Archive(object):
 
     def build_thumbnails(self, dir):
         for item in self.build_items():
-            splits = item['assets']['thumbnail']['href'].split('/')
-            date_dir = os.path.join(dir, splits[-2])
+            thumb_splits = item['assets']['thumbnail']['href'].split('/')
+            infile_splits = item['assets']['data']['href'].split('/')
+            date_dir = os.path.join(dir, thumb_splits[-2])
             if not os.path.exists(date_dir):
                 os.mkdir(date_dir)
 
-            infile = os.path.join(self.archive, splits[-1])
-            outfile = os.path.join(date_dir, splits[-1])
+            infile = os.path.join(self.archive, infile_splits[-1])
+            outfile = os.path.join(date_dir, thumb_splits[-1])
             print("Saving thumbnail to {}".format(outfile))
             gdal.Translate(outfile, f"{self.vsipath}/{infile}", widthPct=0.133, heightPct=0.133, format='JPEG')
 
