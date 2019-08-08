@@ -190,6 +190,3 @@ def build_stac_catalog(id_list=None, verbose=False):
         print("Uploading thumbnails to S3.")
         # Upload thumbnails to S3
         subprocess.call(f"aws s3 sync {thumbdir} s3://cognition-disaster-data/thumbnails/", shell=True)
-
-
-build_stac_catalog(['illinois-tornadoes'])
