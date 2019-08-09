@@ -18,19 +18,18 @@ class Archive(object):
         self.thumbdir = thumbdir
 
     def download(self, out_dir):
-        self.archive = os.path.join(out_dir, os.path.basename(self.item['archive']))
-        # subprocess.call(f"curl -OJ {self.item['archive']}")
         print("Downloading remote archive: {}".format(self.item['archive']))
-        process = subprocess.call(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
+        subprocess.call(f"(cd {out_dir} && curl -O {self.item['archive']})", shell=True)
         print("Finished downloading remote archive: {}".format(self.item['archive']))
-        return process
+        self.archive = os.path.join(out_dir, os.path.basename(self.item['archive']))
+        return 1
 
     def listdir(self, exts=('.jpg', '.tif', '.vrt'), split_by_ext=False):
         if self.archive.endswith('.tar'):
             self.vsipath = '/vsitar/'
         elif self.archive.endswith('.zip'):
             self.vsipath = '/vsizip/'
-        files =  [os.path.join(self.archive, x) for x in gdal.ReadDir(f"{self.vsipath}{self.archive}") if x.endswith(exts)]
+        files = [os.path.join(self.archive, x) for x in gdal.ReadDir(f"{self.vsipath}{self.archive}") if x.endswith(exts)]
         if split_by_ext:
             d = {}
             for ext in exts:

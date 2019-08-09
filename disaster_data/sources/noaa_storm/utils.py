@@ -34,9 +34,9 @@ def load_datetime(date_str):
         return datetime.strptime(date_str, "%Y-%m-%d")
 
 def download_archives(archives, out_dir):
-    processes = []
-    for archive in archives:
-        archive.download(out_dir=out_dir)
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        [executor.submit(x.download(out_dir=out_dir), x) for x in archives]
+    return
 
 def _build_stac_items(asset):
     return asset.build_items()
