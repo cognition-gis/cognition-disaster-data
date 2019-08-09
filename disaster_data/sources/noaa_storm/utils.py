@@ -41,12 +41,10 @@ def download_archives(archives, out_dir):
 def _build_stac_items(asset):
     return asset.build_items()
 
-def build_stac_items(assets, thumbdir):
-    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-        futures = [executor.submit(_build_stac_items, x) for x in assets]
-        for future in futures:
-            for item in future.result():
-                yield item
+def build_stac_items(assets):
+    for asset in assets:
+        for stac_item in asset.build_items():
+            yield stac_item
 
 def build_thumbnails(archives, thumbdir):
     with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
@@ -172,7 +170,7 @@ def build_stac_catalog(id_list=None, verbose=False):
 
         print("Creating items and thumbnails.")
         # Add items
-        for item in build_stac_items(archive_assets, thumbdir):
+        for item in build_stac_items(archive_assets):
             d[item['collection']].add_item(Item(item), path='${date}', filename='${id}')
 
             # Update spatial extent of collection
